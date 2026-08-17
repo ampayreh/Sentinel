@@ -1,0 +1,58 @@
+# Trust fusion configuration — versioned. Bump schema_version on any
+# structural change; bump the weights themselves only via a documented
+# recalibration (scripts/calibrate_thresholds.py), never by hand-editing
+# without a note here of why.
+schema_version: 1
+
+# Severity-weighted evidence scoring: fused_risk = sum(w_i * risk_i) / sum(w_i)
+# where risk_i = 1 - monitor_i.score, with FAIL/STALE verdicts forcing
+# risk_i = 1.0 regardless of the numeric score (a monitor screaming FAIL
+# with score=0.4 is still a FAIL, not a mild risk).
+# Weights below reflect: M1+M2 are the two independent ML/statistical
+# signals (weighted highest, equal, so neither dominates); M4 (rule-based
+# ODD) is weighted just under them because a rule violation is unambiguous
+# when it fires; M3 (timing) is weighted lowest on its own because a
+# timing blip alone is rarely safety-critical, but see `meta` below —
+# correlated failure across monitors (including M3) is boosted separately.
+weights:
+  M1_PERCEPTION: 0.30
+  M2_SENSOR_AGREEMENT: 0.30
+  M3_TIMING: 0.15
+  M4_ODD_COMPLIANCE: 0.25
+
+# Trust state is a step function of fused_risk in [0,1]. Thresholds chosen
+# so FULL_AUTONOMY tolerates ordinary sensor noise (see synthetic.py
+# nominal generator's typical M2 Mahalanobis distribution, measured near
+# 0 fused_risk on 100+ nominal-seed sweeps) but any single monitor FAIL
+# alone is enough to leave FULL_AUTONOMY.
+# IMPORTANT CALIBRATION NOTE: full_autonomy_max_risk was originally set to
+# 0.15, exactly equal to M3_TIMING's weight — this meant a LONE M3 FAIL
+# (e.g. a pure latency spike or sensor dropout with no other monitor
+# affected) produced fused_risk==0.15 exactly, which the "<=" comparison
+# in sentinel.trust.states.state_for_risk classified as STILL
+# FULL_AUTONOMY. This was caught by sentinel/eval/report.py showing 0%
+# detection rate for latency_spike and sensor_dropout fault classes (see
+# eval_results/results.md) — lowered to 0.10 so the lowest-weighted
+# monitor (M3=0.15) alone always clears the boundary.
+risk_thresholds:
+  full_autonomy_max_risk: 0.10
+  degraded_max_risk: 0.45
+  minimal_risk_max_risk: 0.75
+  # fused_risk > minimal_risk_max_risk -> HANDOFF
+
+# Asymmetric dynamics: escalate on k-of-n consecutive bad samples (fast),
+# de-escalate only after a minimum dwell time AND n consecutive clean
+# samples (slow). This is the anti-flap hysteresis the spec requires.
+hysteresis:
+  escalate_k: 2            # 2 bad samples...
+  escalate_n: 3             # ...out of the last 3 ticks (150ms @ 20Hz) triggers escalation
+  min_dwell_ticks: 100       # minimum 5s in a degraded-or-worse state before any de-escalation
+  deescalate_clean_n: 40     # then require 2s of consecutive clean samples to de-escalate one level
+
+# Meta-monitoring: monitors that go stale, or that fail together when they
+# should be independent, are themselves a signal.
+meta:
+  stale_monitor_risk: 1.0
+  correlated_failure_min_monitors: 2     # >=2 independent monitors FAILing together...
+  correlated_failure_window_ticks: 5     # ...within this many ticks of each other...
+  correlated_failure_risk_bonus: 0.25    # ...adds this much to fused_risk (clamped to 1.0)

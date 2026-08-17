@@ -1,0 +1,915 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sentinel — Evidence Replay Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg:        #0b0f1a;
+      --surface:   #111827;
+      --surface2:  #1a2236;
+      --border:    rgba(255,255,255,0.07);
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --green:     #10b981;
+      --amber:     #f59e0b;
+      --red:       #ef4444;
+      --blue:      #3b82f6;
+      --purple:    #8b5cf6;
+      --font:      'Inter', sans-serif;
+      --mono:      'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* ── HEADER ── */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.75rem 1.5rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(17,24,39,0.95);
+      backdrop-filter: blur(12px);
+      position: sticky; top: 0; z-index: 100;
+    }
+    .logo { display: flex; align-items: center; gap: 0.6rem; }
+    .logo-dot {
+      width: 10px; height: 10px; border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px var(--green);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    .logo h1 { font-size: 1.05rem; font-weight: 700; letter-spacing: 0.05em; }
+    .logo span { color: var(--blue); }
+    .header-meta { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+
+    /* ── DROP ZONE ── */
+    #dropzone {
+      margin: 3rem auto;
+      max-width: 580px;
+      border: 2px dashed var(--border);
+      border-radius: 16px;
+      padding: 3.5rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    #dropzone:hover, #dropzone.drag-over {
+      border-color: var(--blue);
+      background: rgba(59,130,246,0.05);
+    }
+    #dropzone h2 { font-size: 1.2rem; margin-bottom: 0.5rem; }
+    #dropzone p  { color: var(--muted); font-size: 0.85rem; }
+    #dropzone .icon { font-size: 2.8rem; margin-bottom: 1rem; }
+    #fileInput { display: none; }
+    .btn {
+      display: inline-block;
+      margin-top: 1.2rem;
+      padding: 0.55rem 1.4rem;
+      background: var(--blue);
+      border: none; border-radius: 8px;
+      color: #fff; font-weight: 600; font-size: 0.85rem;
+      cursor: pointer; transition: background 0.15s;
+    }
+    .btn:hover { background: #2563eb; }
+    .btn-sm { padding: 0.35rem 0.9rem; font-size: 0.78rem; border-radius: 6px; }
+    .btn-ghost {
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+    .btn-ghost:hover { background: var(--surface2); }
+
+    /* ── PLAYER ── */
+    #player { display: none; padding: 1rem 1.5rem 2rem; }
+
+    /* Status bar */
+    .status-bar {
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0.55rem 1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      margin-bottom: 1rem;
+      flex-wrap: wrap;
+    }
+    .stat { display: flex; flex-direction: column; }
+    .stat-label { font-size: 0.62rem; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+    .stat-value { font-family: var(--mono); font-size: 0.85rem; font-weight: 600; }
+    .divider { width: 1px; height: 28px; background: var(--border); }
+
+    /* Trust pill */
+    .trust-pill {
+      padding: 0.25rem 0.9rem;
+      border-radius: 20px;
+      font-weight: 700; font-size: 0.78rem; letter-spacing: 0.06em;
+      margin-left: auto;
+    }
+    .trust-FULL_AUTONOMY, .trust-ALLOW { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+    .trust-DEGRADE, .trust-WARN       { background: rgba(245,158,11,0.15); color: var(--amber); border: 1px solid rgba(245,158,11,0.3); }
+    .trust-BLOCK, .trust-EMERGENCY_STOP, .trust-FAIL { background: rgba(239,68,68,0.18); color: var(--red); border: 1px solid rgba(239,68,68,0.4); }
+
+    /* FAULT BANNER */
+    #faultBanner {
+      display: none;
+      padding: 0.5rem 1rem;
+      background: rgba(239,68,68,0.12);
+      border: 1px solid rgba(239,68,68,0.4);
+      border-radius: 8px;
+      margin-bottom: 0.75rem;
+      font-size: 0.82rem;
+      color: #f87171;
+      animation: blink-border 1s ease-in-out infinite alternate;
+    }
+    @keyframes blink-border {
+      from { border-color: rgba(239,68,68,0.3); }
+      to   { border-color: rgba(239,68,68,0.7); box-shadow: 0 0 10px rgba(239,68,68,0.2); }
+    }
+
+    /* Timeline scrubber */
+    .timeline-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      margin-bottom: 1rem;
+    }
+    .timeline-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 0.5rem;
+    }
+    .timeline-label { font-size: 0.72rem; color: var(--muted); }
+
+    /* Fault-annotated timeline track */
+    #timelineTrack {
+      position: relative;
+      height: 32px;
+      border-radius: 6px;
+      overflow: hidden;
+      cursor: pointer;
+      background: var(--surface2);
+      margin-bottom: 0.5rem;
+    }
+    #timelineBg {
+      position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+    }
+    #timelineCursor {
+      position: absolute; top: 0; bottom: 0; width: 2px;
+      background: #fff; opacity: 0.9;
+      pointer-events: none;
+      transition: left 0.05s linear;
+    }
+    .fault-region {
+      position: absolute; top: 0; bottom: 0;
+      background: rgba(239,68,68,0.35);
+      border-left: 1px solid rgba(239,68,68,0.7);
+      border-right: 1px solid rgba(239,68,68,0.7);
+    }
+    .trust-region {
+      position: absolute; top: 60%; bottom: 0;
+    }
+
+    #scrubber {
+      width: 100%;
+      accent-color: var(--blue);
+      cursor: pointer;
+    }
+
+    /* Controls */
+    .controls {
+      display: flex; align-items: center; gap: 0.6rem;
+      margin-top: 0.5rem; flex-wrap: wrap;
+    }
+    .ctrl-btn {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      border-radius: 6px;
+      padding: 0.3rem 0.75rem;
+      cursor: pointer;
+      font-size: 1rem;
+      transition: background 0.15s;
+    }
+    .ctrl-btn:hover { background: rgba(59,130,246,0.15); }
+    .ctrl-btn.active { background: rgba(59,130,246,0.25); border-color: var(--blue); }
+
+    .speed-label { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); }
+    select {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); border-radius: 6px; padding: 0.3rem 0.5rem;
+      font-size: 0.8rem; cursor: pointer;
+    }
+
+    /* Main grid */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    @media(max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.85rem 1rem;
+    }
+    .card-title {
+      font-size: 0.7rem; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.1em;
+      margin-bottom: 0.65rem;
+    }
+
+    /* Monitor rows */
+    .monitor-row {
+      display: flex; align-items: center; gap: 0.6rem;
+      padding: 0.45rem 0.6rem;
+      border-radius: 8px;
+      margin-bottom: 0.4rem;
+      background: var(--surface2);
+      border: 1px solid transparent;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .monitor-row.fault-active {
+      background: rgba(239,68,68,0.06);
+      border-color: rgba(239,68,68,0.3);
+    }
+    .verdict-pill {
+      font-size: 0.64rem; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px;
+      min-width: 38px; text-align: center;
+    }
+    .verdict-PASS { background: rgba(16,185,129,0.15); color: var(--green); }
+    .verdict-WARN { background: rgba(245,158,11,0.15); color: var(--amber); }
+    .verdict-FAIL { background: rgba(239,68,68,0.2);  color: var(--red);
+                    animation: pulse-pill 0.7s ease-in-out infinite alternate; }
+    .verdict-STALE{ background: rgba(100,116,139,0.2); color: var(--muted); }
+    @keyframes pulse-pill {
+      from { box-shadow: none; }
+      to   { box-shadow: 0 0 6px rgba(239,68,68,0.5); }
+    }
+
+    .mon-name { font-size: 0.78rem; font-weight: 600; flex: 1; }
+    .mon-meta { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); }
+
+    /* Z-score bar */
+    .zscore-wrap { display: flex; align-items: center; gap: 0.4rem; }
+    .z-label { font-family: var(--mono); font-size: 0.68rem; color: var(--muted); min-width: 52px; text-align: right; }
+    .z-bar-bg {
+      width: 70px; height: 6px; border-radius: 3px;
+      background: rgba(255,255,255,0.07); overflow: hidden;
+    }
+    .z-bar-fill {
+      height: 100%; border-radius: 3px;
+      transition: width 0.12s, background 0.2s;
+    }
+    .score-wrap { display: flex; align-items: center; gap: 0.4rem; }
+    .score-num { font-family: var(--mono); font-size: 0.78rem; font-weight: 600; min-width: 36px; text-align: right; }
+
+    /* Evidence details */
+    .ev-table { width: 100%; border-collapse: collapse; font-size: 0.76rem; }
+    .ev-table th { color: var(--muted); font-weight: 500; text-align: left; padding: 0.25rem 0.4rem; font-size: 0.68rem; }
+    .ev-table td { padding: 0.25rem 0.4rem; font-family: var(--mono); font-size: 0.72rem; border-top: 1px solid var(--border); }
+    .ev-table tr:hover td { background: var(--surface2); }
+
+    /* Z-score chart */
+    #zChart {
+      width: 100%; height: 130px;
+      display: block;
+    }
+
+    /* Policy grid */
+    .policy-grid { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .policy-pill {
+      padding: 0.25rem 0.7rem;
+      border-radius: 6px; font-size: 0.72rem; font-weight: 600;
+    }
+    .policy-ALLOW, .policy-PERMIT { background: rgba(16,185,129,0.12); color: var(--green); border: 1px solid rgba(16,185,129,0.25); }
+    .policy-DENY, .policy-BLOCK   { background: rgba(239,68,68,0.12);  color: var(--red);   border: 1px solid rgba(239,68,68,0.25); }
+
+    /* Transition log */
+    #transitionLog {
+      max-height: 160px; overflow-y: auto;
+    }
+    .tr-row {
+      display: flex; gap: 0.5rem; align-items: flex-start;
+      padding: 0.35rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.74rem;
+    }
+    .tr-seq { font-family: var(--mono); color: var(--muted); min-width: 48px; }
+    .tr-arrow { color: var(--amber); }
+    .tr-reason { color: var(--text); opacity: 0.8; font-size: 0.7rem; }
+
+    .empty-state { color: var(--muted); font-size: 0.8rem; text-align: center; padding: 1.5rem 0; }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-dot" id="headerDot"></div>
+    <h1>SENTINEL <span>REPLAY</span></h1>
+  </div>
+  <div class="header-meta" id="headerMeta">No file loaded — drop a JSONL evidence file</div>
+</header>
+
+<!-- DROP ZONE -->
+<div id="dropzone">
+  <div class="icon">📂</div>
+  <h2>Drop Evidence JSONL File</h2>
+  <p>Drag &amp; drop <code>live_web.jsonl</code>, <code>scripted_demo.jsonl</code>, or any evidence log</p>
+  <p style="margin-top:0.4rem; font-size:0.75rem; color:#475569;">No server required — runs fully in browser</p>
+  <button class="btn" onclick="document.getElementById('fileInput').click()">Browse File</button>
+  <input type="file" id="fileInput" accept=".jsonl,.json" />
+</div>
+
+<!-- PLAYER (hidden until file loaded) -->
+<div id="player">
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="stat">
+      <span class="stat-label">Frame</span>
+      <span class="stat-value" id="statFrame">#00000</span>
+    </div>
+    <div class="divider"></div>
+    <div class="stat">
+      <span class="stat-label">Total Frames</span>
+      <span class="stat-value" id="statTotal">—</span>
+    </div>
+    <div class="divider"></div>
+    <div class="stat">
+      <span class="stat-label">Elapsed</span>
+      <span class="stat-value" id="statElapsed">0.0s</span>
+    </div>
+    <div class="divider"></div>
+    <div class="stat">
+      <span class="stat-label">Trust Transitions</span>
+      <span class="stat-value" id="statTransitions">0</span>
+    </div>
+    <div class="divider"></div>
+    <div class="stat">
+      <span class="stat-label">Fault Regions</span>
+      <span class="stat-value" id="statFaults" style="color:var(--red)">0</span>
+    </div>
+    <div class="trust-pill" id="trustPill">FULL_AUTONOMY</div>
+  </div>
+
+  <!-- Fault banner -->
+  <div id="faultBanner">⚠ FAULT ACTIVE — Perception Degradation detected this frame</div>
+
+  <!-- Timeline -->
+  <div class="timeline-wrap">
+    <div class="timeline-header">
+      <span class="timeline-label">Timeline — <span style="color:var(--red)">■</span> fault regions | <span style="color:var(--amber)">■</span> WARN | <span style="color:var(--red)">■</span> FAIL trust</span>
+      <span class="timeline-label" id="tlTime">0.0 / 0.0 s</span>
+    </div>
+    <div id="timelineTrack">
+      <canvas id="timelineBgCanvas" style="position:absolute;top:0;left:0;width:100%;height:100%;"></canvas>
+      <div id="timelineCursor"></div>
+    </div>
+    <input type="range" id="scrubber" min="0" value="0" step="1" />
+    <div class="controls">
+      <button class="ctrl-btn" id="btnRewind" title="Rewind to start">⏮</button>
+      <button class="ctrl-btn" id="btnStepBack" title="Step back 1 frame">⏪</button>
+      <button class="ctrl-btn active" id="btnPlayPause" title="Play/Pause">▶</button>
+      <button class="ctrl-btn" id="btnStepFwd" title="Step forward 1 frame">⏩</button>
+      <button class="ctrl-btn" id="btnEnd" title="Jump to end">⏭</button>
+      <span class="speed-label" style="margin-left:0.5rem;">Speed:</span>
+      <select id="speedSelect">
+        <option value="0.1">0.1× (very slow)</option>
+        <option value="0.25">0.25× (slow)</option>
+        <option value="0.5">0.5× (half speed)</option>
+        <option value="1" selected>1× (real-time)</option>
+        <option value="2">2× (fast)</option>
+        <option value="5">5× (very fast)</option>
+        <option value="10">10× (turbo)</option>
+        <option value="0">Max (no delay)</option>
+      </select>
+      <span class="speed-label" style="margin-left:0.5rem;">Jump:</span>
+      <button class="btn btn-sm btn-ghost" id="btnPrevFault">⬅ Prev Fault</button>
+      <button class="btn btn-sm btn-ghost" id="btnNextFault">Next Fault ➡</button>
+      <button class="btn btn-sm btn-ghost" id="btnPrevTrans">⬅ Prev Transition</button>
+      <button class="btn btn-sm btn-ghost" id="btnNextTrans">Next Transition ➡</button>
+    </div>
+  </div>
+
+  <!-- Main content grid -->
+  <div class="grid">
+
+    <!-- Monitor status -->
+    <div class="card">
+      <div class="card-title">Monitor Status — Actual Z-Scores</div>
+      <div id="monitorRows"></div>
+    </div>
+
+    <!-- Z-score chart -->
+    <div class="card">
+      <div class="card-title">Z-Score History (last 200 frames)</div>
+      <canvas id="zChart"></canvas>
+      <div style="display:flex;gap:1rem;margin-top:0.4rem;flex-wrap:wrap;">
+        <span style="font-size:0.68rem;color:var(--muted);">
+          <span style="color:#3b82f6">—</span> M1:Perception &nbsp;
+          <span style="color:#10b981">—</span> M2:Sensor &nbsp;
+          <span style="color:#f59e0b">—</span> M3:Timing &nbsp;
+          <span style="color:#8b5cf6">—</span> M4:ODD
+        </span>
+        <span style="font-size:0.68rem;color:var(--red);margin-left:auto;">
+          — warn=3.07 &nbsp; — fail=4.59
+        </span>
+      </div>
+    </div>
+
+    <!-- Evidence detail table -->
+    <div class="card">
+      <div class="card-title">Frame Evidence Detail</div>
+      <div id="evidenceDetail"><p class="empty-state">Select a frame to see details</p></div>
+    </div>
+
+    <!-- Trust transitions log -->
+    <div class="card">
+      <div class="card-title">Trust Transition Log</div>
+      <div id="transitionLog"><p class="empty-state">No transitions yet</p></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────────────────────
+let frames = [];          // parsed EvidenceRecord[]
+let faultRegions = [];    // [{start, end, label}] detected from trust+z-score drops
+let transitionEvents = [];// [{idx, from, to, reason}]
+let zHistory = { M1: [], M2: [], M3: [], M4: [] };  // rolling window
+
+let currentIdx = 0;
+let playing = false;
+let playTimer = null;
+let speedMultiplier = 1.0;
+const BASE_FRAME_MS = 50; // 20Hz nominal = 50ms/frame
+
+const MONITOR_COLORS = {
+  M1_PERCEPTION:    '#3b82f6',
+  M2_SENSOR_AGREEMENT: '#10b981',
+  M3_TIMING:        '#f59e0b',
+  M4_ODD:           '#8b5cf6',
+};
+const MONITOR_KEYS = ['M1_PERCEPTION','M2_SENSOR_AGREEMENT','M3_TIMING','M4_ODD_COMPLIANCE'];
+const WARN_Z = 3.073, FAIL_Z = 4.588;
+
+// ── FILE LOADING ───────────────────────────────────────────────────────────
+function setupDropzone() {
+  const dz = document.getElementById('dropzone');
+  const fi = document.getElementById('fileInput');
+
+  dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault(); dz.classList.remove('drag-over');
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  });
+  fi.addEventListener('change', () => { if (fi.files[0]) loadFile(fi.files[0]); });
+}
+
+function loadFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split('\n').filter(l => l.trim());
+    frames = [];
+    for (const line of lines) {
+      try { frames.push(JSON.parse(line)); } catch {}
+    }
+    if (frames.length === 0) { alert('No valid JSONL records found.'); return; }
+    processFrames(file.name);
+  };
+  reader.readAsText(file);
+}
+
+function processFrames(filename) {
+  // Detect fault regions: consecutive frames where ANY monitor has FAIL verdict
+  // OR z-score is above FAIL_Z
+  faultRegions = [];
+  transitionEvents = [];
+
+  let inFault = false, faultStart = 0;
+  let prevTrust = null;
+
+  for (let i = 0; i < frames.length; i++) {
+    const f = frames[i];
+    const hasFail = (f.monitor_results || []).some(m =>
+      m.verdict === 'FAIL' || (m.evidence && m.evidence.max_z >= FAIL_Z)
+    );
+
+    if (hasFail && !inFault) { inFault = true; faultStart = i; }
+    if (!hasFail && inFault) {
+      faultRegions.push({ start: faultStart, end: i - 1, label: 'M-FAIL' });
+      inFault = false;
+    }
+
+    const trust = f.trust_state;
+    if (prevTrust && trust !== prevTrust) {
+      transitionEvents.push({ idx: i, from: prevTrust, to: trust, reason: f.trust_transition?.reason || '' });
+    }
+    prevTrust = trust;
+  }
+  if (inFault) faultRegions.push({ start: faultStart, end: frames.length - 1, label: 'M-FAIL' });
+
+  // Update UI
+  document.getElementById('dropzone').style.display = 'none';
+  document.getElementById('player').style.display = 'block';
+
+  const scrubber = document.getElementById('scrubber');
+  scrubber.max = frames.length - 1;
+  scrubber.value = 0;
+
+  document.getElementById('statTotal').textContent = frames.length;
+  document.getElementById('statFaults').textContent = faultRegions.length;
+  document.getElementById('statTransitions').textContent = transitionEvents.length;
+  document.getElementById('headerMeta').textContent =
+    `${filename} — ${frames.length} frames — ${faultRegions.length} fault region(s) — ${transitionEvents.length} trust transition(s)`;
+
+  drawTimelineCanvas();
+  buildTransitionLog();
+  currentIdx = 0;
+  renderFrame(0);
+  startPlay();
+}
+
+// ── TIMELINE CANVAS ────────────────────────────────────────────────────────
+function drawTimelineCanvas() {
+  const track = document.getElementById('timelineTrack');
+  const canvas = document.getElementById('timelineBgCanvas');
+  const W = track.clientWidth || 800, H = 32;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const n = frames.length;
+
+  // Background gradient based on trust state
+  for (let i = 0; i < n; i++) {
+    const x = Math.floor((i / n) * W);
+    const w = Math.max(1, Math.floor(W / n) + 1);
+    const trust = frames[i].trust_state;
+    let color = 'rgba(16,185,129,0.18)';
+    if (trust === 'DEGRADE' || trust === 'WARN') color = 'rgba(245,158,11,0.25)';
+    else if (trust === 'BLOCK' || trust === 'EMERGENCY_STOP') color = 'rgba(239,68,68,0.3)';
+    ctx.fillStyle = color;
+    ctx.fillRect(x, H * 0.6, w + 1, H * 0.4);
+  }
+
+  // Z-score heatmap strip (top 60%)
+  for (let i = 0; i < n; i++) {
+    const f = frames[i];
+    const maxZ = Math.max(...(f.monitor_results || []).map(m =>
+      m.evidence && m.evidence.max_z != null ? m.evidence.max_z : 0
+    ));
+    const x = Math.floor((i / n) * W);
+    const w = Math.max(1, Math.floor(W / n) + 1);
+    const intensity = Math.min(1, maxZ / FAIL_Z);
+    const r = Math.round(16 + 223 * intensity);
+    const g = Math.round(185 - 153 * intensity);
+    const b = Math.round(129 - 81 * intensity);
+    ctx.fillStyle = `rgba(${r},${g},${b},0.5)`;
+    ctx.fillRect(x, 0, w + 1, H * 0.58);
+  }
+
+  // Fault region overlays
+  for (const fr of faultRegions) {
+    const x1 = Math.floor((fr.start / n) * W);
+    const x2 = Math.floor((fr.end / n) * W);
+    ctx.fillStyle = 'rgba(239,68,68,0.22)';
+    ctx.fillRect(x1, 0, x2 - x1 + 2, H);
+    ctx.strokeStyle = 'rgba(239,68,68,0.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(x1, 0); ctx.lineTo(x1, H); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x2+2, 0); ctx.lineTo(x2+2, H); ctx.stroke();
+  }
+
+  // Transition markers
+  for (const tr of transitionEvents) {
+    const x = Math.floor((tr.idx / n) * W);
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Timeline click
+  track.onclick = (e) => {
+    const rect = track.getBoundingClientRect();
+    const frac = (e.clientX - rect.left) / rect.width;
+    const idx = Math.round(frac * (frames.length - 1));
+    seekTo(Math.max(0, Math.min(frames.length - 1, idx)));
+  };
+}
+
+function updateCursor() {
+  const pct = frames.length > 1 ? (currentIdx / (frames.length - 1)) * 100 : 0;
+  document.getElementById('timelineCursor').style.left = pct + '%';
+}
+
+// ── RENDER FRAME ──────────────────────────────────────────────────────────
+function renderFrame(idx) {
+  const f = frames[idx];
+  if (!f) return;
+
+  // Status bar
+  document.getElementById('statFrame').textContent = `#${String(idx).padStart(5,'0')}`;
+  const elapsedS = (f.monotonic_ns / 1e9).toFixed(1);
+  const totalS = (frames[frames.length-1].monotonic_ns / 1e9).toFixed(1);
+  document.getElementById('statElapsed').textContent = `${elapsedS}s`;
+  document.getElementById('tlTime').textContent = `${elapsedS} / ${totalS} s`;
+
+  // Trust pill
+  const trust = f.trust_state || 'FULL_AUTONOMY';
+  const pill = document.getElementById('trustPill');
+  pill.textContent = trust;
+  pill.className = `trust-pill trust-${trust}`;
+
+  // Fault banner
+  const inFault = faultRegions.some(r => idx >= r.start && idx <= r.end);
+  const banner = document.getElementById('faultBanner');
+  if (inFault) {
+    const failMons = (f.monitor_results || []).filter(m => m.verdict === 'FAIL').map(m => m.monitor_id).join(', ');
+    banner.textContent = `⚠ FAULT ACTIVE — FAIL: ${failMons || 'Monitor'}`;
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+
+  // Scrubber + cursor
+  document.getElementById('scrubber').value = idx;
+  updateCursor();
+
+  // Monitor rows + Z-score chart update
+  renderMonitors(f, inFault);
+  updateZChart(f, idx);
+  renderEvidenceDetail(f);
+}
+
+function renderMonitors(f, inFault) {
+  const monitors = f.monitor_results || [];
+  const colors = {
+    M1_PERCEPTION: '#3b82f6',
+    M2_SENSOR_AGREEMENT: '#10b981',
+    M2_SENSOR_AGREMENT: '#10b981',
+    M3_TIMING: '#f59e0b',
+    M4_ODD: '#8b5cf6',
+    M4_ODD_COMPLIANCE: '#8b5cf6',
+  };
+
+  document.getElementById('monitorRows').innerHTML = monitors.map(m => {
+    const maxZ = m.evidence && m.evidence.max_z != null ? parseFloat(m.evidence.max_z) : null;
+    const score = m.score != null ? m.score : m.confidence;
+    const scorePct = Math.round(score * 100);
+    const color = Object.entries(colors).find(([k]) => m.monitor_id.includes(k.split('_')[0]) && m.monitor_id.includes(k.split('_')[1] || ''))?.[1]
+                  || colors[m.monitor_id] || '#64748b';
+
+    let zBarColor = '#10b981';
+    if (maxZ >= FAIL_Z) zBarColor = '#ef4444';
+    else if (maxZ >= WARN_Z) zBarColor = '#f59e0b';
+
+    const zBarWidth = maxZ != null ? Math.min(100, (maxZ / (FAIL_Z * 1.3)) * 100).toFixed(1) : 0;
+
+    // Extra evidence fields
+    const percConf = m.evidence && m.evidence.mean_confidence != null
+      ? `perc=${(m.evidence.mean_confidence * 100).toFixed(1)}%` : '';
+    const jitter = m.evidence && m.evidence.mean_box_jitter_px != null
+      ? `jitter=${parseFloat(m.evidence.mean_box_jitter_px).toFixed(1)}px` : '';
+    const extra = [percConf, jitter].filter(Boolean).join(' | ');
+
+    return `
+      <div class="monitor-row ${inFault && m.verdict === 'FAIL' ? 'fault-active' : ''}">
+        <span class="verdict-pill verdict-${m.verdict}">${m.verdict}</span>
+        <div style="flex:1; min-width:0;">
+          <div class="mon-name">${m.monitor_id}</div>
+          ${maxZ != null ? `<div class="mon-meta">Z=${maxZ.toFixed(3)} ${extra ? '| ' + extra : ''}</div>` : `<div class="mon-meta">${m.evidence?.reason || ''}</div>`}
+        </div>
+        <div class="zscore-wrap">
+          <span class="z-label" style="color:${zBarColor}">${maxZ != null ? 'Z='+maxZ.toFixed(2) : '—'}</span>
+          <div class="z-bar-bg">
+            <div class="z-bar-fill" style="width:${zBarWidth}%;background:${zBarColor}"></div>
+          </div>
+        </div>
+        <div class="score-wrap">
+          <span class="score-num" style="color:${scorePct < 30 ? '#ef4444' : scorePct < 70 ? '#f59e0b' : '#10b981'}">${scorePct}%</span>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ── Z-SCORE CHART ─────────────────────────────────────────────────────────
+const Z_WINDOW = 200;
+const zBuf = {}; // monitor_id -> circular arrays
+
+function updateZChart(f, idx) {
+  for (const m of (f.monitor_results || [])) {
+    if (!zBuf[m.monitor_id]) zBuf[m.monitor_id] = [];
+    const z = m.evidence && m.evidence.max_z != null ? m.evidence.max_z : null;
+    zBuf[m.monitor_id].push(z);
+    if (zBuf[m.monitor_id].length > Z_WINDOW) zBuf[m.monitor_id].shift();
+  }
+  drawZChart();
+}
+
+function drawZChart() {
+  const canvas = document.getElementById('zChart');
+  const W = canvas.offsetWidth || 400, H = 130;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+
+  ctx.fillStyle = 'rgba(17,24,39,0.6)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Y axis: 0 to 6 z-score
+  const maxY = 6;
+  function yOf(z) { return H - Math.min(H, (z / maxY) * H); }
+
+  // Grid lines at warn and fail
+  ctx.strokeStyle = 'rgba(245,158,11,0.3)'; ctx.lineWidth = 1; ctx.setLineDash([4,4]);
+  const yw = yOf(WARN_Z);
+  ctx.beginPath(); ctx.moveTo(0, yw); ctx.lineTo(W, yw); ctx.stroke();
+  ctx.strokeStyle = 'rgba(239,68,68,0.35)';
+  const yf = yOf(FAIL_Z);
+  ctx.beginPath(); ctx.moveTo(0, yf); ctx.lineTo(W, yf); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Labels
+  ctx.fillStyle = 'rgba(245,158,11,0.6)'; ctx.font = '9px JetBrains Mono,monospace';
+  ctx.fillText('warn', 2, yw - 2);
+  ctx.fillStyle = 'rgba(239,68,68,0.7)';
+  ctx.fillText('fail', 2, yf - 2);
+
+  // Fault region shading (within window)
+  // (simplified: shade red any column where any monitor is FAIL)
+  const colors = {
+    M1_PERCEPTION:        '#3b82f6',
+    M2_SENSOR_AGREEMENT:  '#10b981',
+    M2_SENSOR_AGREMENT:   '#10b981',
+    M3_TIMING:            '#f59e0b',
+    M4_ODD_COMPLIANCE:    '#8b5cf6',
+    M4_ODD:               '#8b5cf6',
+  };
+
+  for (const [monId, vals] of Object.entries(zBuf)) {
+    const color = Object.entries(colors).find(([k]) => monId.startsWith(k))?.[1] || '#64748b';
+    const n = vals.length;
+    ctx.strokeStyle = color; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    let started = false;
+    for (let i = 0; i < n; i++) {
+      if (vals[i] == null) { started = false; continue; }
+      const x = (i / Math.max(1, Z_WINDOW - 1)) * W;
+      const y = yOf(vals[i]);
+      if (!started) { ctx.moveTo(x, y); started = true; }
+      else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+}
+
+// ── EVIDENCE DETAIL TABLE ──────────────────────────────────────────────────
+function renderEvidenceDetail(f) {
+  const rows = (f.monitor_results || []).flatMap(m => {
+    return Object.entries(m.evidence || {}).map(([k, v]) =>
+      `<tr><td style="color:var(--muted)">${m.monitor_id.replace('_', ' ')}</td><td>${k}</td><td>${typeof v === 'number' ? (Number.isInteger(v) ? v : v.toFixed(5)) : v}</td></tr>`
+    );
+  });
+
+  document.getElementById('evidenceDetail').innerHTML = rows.length ? `
+    <table class="ev-table">
+      <thead><tr><th>Monitor</th><th>Key</th><th>Value</th></tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>` : '<p class="empty-state">No evidence data</p>';
+}
+
+// ── TRANSITION LOG ─────────────────────────────────────────────────────────
+function buildTransitionLog() {
+  if (transitionEvents.length === 0) return;
+  const el = document.getElementById('transitionLog');
+  el.innerHTML = transitionEvents.slice().reverse().map(tr => `
+    <div class="tr-row">
+      <span class="tr-seq">#${String(tr.idx).padStart(5,'0')}</span>
+      <span class="tr-arrow">${tr.from} → ${tr.to}</span>
+      <span class="tr-reason">${tr.reason ? tr.reason.slice(0, 80) : ''}</span>
+    </div>`).join('');
+}
+
+// ── PLAYBACK ──────────────────────────────────────────────────────────────
+function getFrameDelay() {
+  const spd = parseFloat(document.getElementById('speedSelect').value);
+  if (spd === 0) return 0;
+  return Math.max(0, BASE_FRAME_MS / spd);
+}
+
+function startPlay() {
+  playing = true;
+  document.getElementById('btnPlayPause').textContent = '⏸';
+  document.getElementById('btnPlayPause').classList.add('active');
+  scheduleNext();
+}
+
+function pausePlay() {
+  playing = false;
+  document.getElementById('btnPlayPause').textContent = '▶';
+  document.getElementById('btnPlayPause').classList.remove('active');
+  if (playTimer) clearTimeout(playTimer);
+}
+
+function scheduleNext() {
+  if (!playing) return;
+  const delay = getFrameDelay();
+  if (delay === 0) {
+    // Max speed: use requestAnimationFrame to avoid blocking UI
+    requestAnimationFrame(() => {
+      if (!playing) return;
+      advanceFrame();
+      scheduleNext();
+    });
+  } else {
+    playTimer = setTimeout(() => {
+      if (!playing) return;
+      advanceFrame();
+      scheduleNext();
+    }, delay);
+  }
+}
+
+function advanceFrame() {
+  if (currentIdx >= frames.length - 1) { pausePlay(); return; }
+  currentIdx++;
+  renderFrame(currentIdx);
+}
+
+function seekTo(idx) {
+  currentIdx = Math.max(0, Math.min(frames.length - 1, idx));
+  renderFrame(currentIdx);
+}
+
+// ── JUMP HELPERS ──────────────────────────────────────────────────────────
+function jumpToNextFault() {
+  const next = faultRegions.find(r => r.start > currentIdx);
+  if (next) seekTo(next.start);
+}
+function jumpToPrevFault() {
+  const prev = [...faultRegions].reverse().find(r => r.end < currentIdx);
+  if (prev) seekTo(prev.start);
+}
+function jumpToNextTransition() {
+  const next = transitionEvents.find(t => t.idx > currentIdx);
+  if (next) seekTo(next.idx);
+}
+function jumpToPrevTransition() {
+  const prev = [...transitionEvents].reverse().find(t => t.idx < currentIdx);
+  if (prev) seekTo(prev.idx);
+}
+
+// ── CONTROLS WIRING ───────────────────────────────────────────────────────
+document.getElementById('btnPlayPause').onclick = () => playing ? pausePlay() : startPlay();
+document.getElementById('btnRewind').onclick    = () => { pausePlay(); seekTo(0); };
+document.getElementById('btnEnd').onclick       = () => { pausePlay(); seekTo(frames.length - 1); };
+document.getElementById('btnStepBack').onclick  = () => { pausePlay(); seekTo(currentIdx - 1); };
+document.getElementById('btnStepFwd').onclick   = () => { pausePlay(); seekTo(currentIdx + 1); };
+document.getElementById('btnNextFault').onclick = () => { pausePlay(); jumpToNextFault(); };
+document.getElementById('btnPrevFault').onclick = () => { pausePlay(); jumpToPrevFault(); };
+document.getElementById('btnNextTrans').onclick = () => { pausePlay(); jumpToNextTransition(); };
+document.getElementById('btnPrevTrans').onclick = () => { pausePlay(); jumpToPrevTransition(); };
+document.getElementById('scrubber').oninput = (e) => { pausePlay(); seekTo(parseInt(e.target.value)); };
+document.getElementById('speedSelect').onchange = () => {
+  if (playing) { clearTimeout(playTimer); scheduleNext(); }
+};
+
+// Keyboard shortcuts
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+  if (e.code === 'Space') { e.preventDefault(); playing ? pausePlay() : startPlay(); }
+  if (e.code === 'ArrowRight') { pausePlay(); seekTo(currentIdx + (e.shiftKey ? 20 : 1)); }
+  if (e.code === 'ArrowLeft')  { pausePlay(); seekTo(currentIdx - (e.shiftKey ? 20 : 1)); }
+  if (e.code === 'Home') { pausePlay(); seekTo(0); }
+  if (e.code === 'End')  { pausePlay(); seekTo(frames.length - 1); }
+  if (e.key === 'f') jumpToNextFault();
+  if (e.key === 'F') jumpToPrevFault();
+  if (e.key === 't') jumpToNextTransition();
+  if (e.key === 'T') jumpToPrevTransition();
+});
+
+// ── INIT ─────────────────────────────────────────────────────────────────
+setupDropzone();
+</script>
+</body>
+</html>

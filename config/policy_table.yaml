@@ -1,0 +1,62 @@
+# Authority table: (trust_state x action_class x ODD context) -> ALLOW | DENY.
+# schema_version bump required for any structural change to this file.
+schema_version: 1
+
+# Base authority: for each trust state, the list of action classes granted
+# BEFORE context overrides are applied. Every TrustState must have an
+# entry, even if empty (HANDOFF), so there is never an implicit fall-
+# through — sentinel/policy/gate.py's totality test enforces this.
+base_authority:
+  FULL_AUTONOMY:
+    - maintain_lane
+    - reduce_speed
+    - lane_change
+    - overtake
+    - unprotected_turn
+    - increase_autonomy_authority
+  DEGRADED:
+    - maintain_lane
+    - reduce_speed
+    - lane_change
+  MINIMAL_RISK:
+    - maintain_lane
+    - reduce_speed
+  HANDOFF: []
+
+# Context overrides: hard rules that DENY specific action classes when a
+# named context flag is present, REGARDLESS of trust state or base
+# authority. Overrides can only ever remove authority the base table
+# granted — they have no ALLOW form, by construction (see gate.py), which
+# is what makes "evidence can only tighten authority" a structural
+# property rather than a convention.
+context_overrides:
+  - rule_id: POL-014
+    description: >
+      Construction zone (VLM advisory evidence, M4-gated) combined with
+      degraded localization prohibits autonomous overtaking and any
+      authority increase. Worked example from the spec.
+    when_context_flags_any:
+      - construction_zone_and_degraded_localization
+    deny_action_classes:
+      - overtake
+      - unprotected_turn
+      - increase_autonomy_authority
+
+  - rule_id: POL-002
+    description: "Vehicle outside its certified geofence: no maneuvers that expand authority or change lanes."
+    when_context_flags_any:
+      - geofence_violation
+    deny_action_classes:
+      - overtake
+      - lane_change
+      - unprotected_turn
+      - increase_autonomy_authority
+
+  - rule_id: POL-007
+    description: "GNSS fix invalid: unprotected turns require reliable localization."
+    when_context_flags_any:
+      - gnss_fix_invalid
+    deny_action_classes:
+      - unprotected_turn
+      - overtake
+      - increase_autonomy_authority

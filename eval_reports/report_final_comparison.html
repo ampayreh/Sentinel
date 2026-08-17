@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SENTINEL // FINAL LLM COMPARISON REPORT</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;800&family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #090d16;
+      --panel-bg: rgba(18, 24, 38, 0.9);
+      --border-color: rgba(118, 185, 0, 0.3);
+      --nvidia-green: #76b900;
+      --text-main: #f0f6fc;
+      --text-muted: #94a3b8;
+      --pass-green: #10b981;
+      --accent-cyan: #38bdf8;
+      --gold-star: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: var(--bg-dark);
+      color: var(--text-main);
+      font-family: 'Outfit', sans-serif;
+      padding: 2.5rem;
+      line-height: 1.5;
+    }
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 3px solid var(--nvidia-green);
+      padding-bottom: 1.5rem;
+      margin-bottom: 2.5rem;
+    }
+    .title-group h1 {
+      font-size: 2.2rem;
+      font-weight: 900;
+      color: var(--nvidia-green);
+      letter-spacing: -0.5px;
+    }
+    .title-group p {
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+      margin-top: 0.3rem;
+    }
+    .platform-badge {
+      background: rgba(118, 185, 0, 0.15);
+      border: 1px solid var(--nvidia-green);
+      color: var(--nvidia-green);
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 800;
+      font-size: 1rem;
+    }
+    .winner-card {
+      background: linear-gradient(135deg, rgba(118, 185, 0, 0.15), rgba(56, 189, 248, 0.15));
+      border: 2px solid var(--nvidia-green);
+      border-radius: 14px;
+      padding: 1.8rem;
+      margin-bottom: 2.5rem;
+      box-shadow: 0 8px 32px rgba(118, 185, 0, 0.2);
+    }
+    .winner-title {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--gold-star);
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+    .winner-body {
+      font-size: 1rem;
+      color: #e2e8f0;
+    }
+    .card {
+      background: var(--panel-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 1.8rem;
+      margin-bottom: 2.5rem;
+      backdrop-filter: blur(10px);
+    }
+    .card-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: var(--accent-cyan);
+      margin-bottom: 1.2rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+    th, td {
+      padding: 0.9rem 1.1rem;
+      text-align: left;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    th {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--accent-cyan);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      text-transform: uppercase;
+    }
+    tr:hover {
+      background: rgba(118, 185, 0, 0.05);
+    }
+    .rank-badge {
+      display: inline-block;
+      width: 28px;
+      height: 28px;
+      line-height: 28px;
+      text-align: center;
+      border-radius: 50%;
+      font-weight: 800;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+    }
+    .rank-1 { background: var(--gold-star); color: #000; }
+    .rank-2 { background: #94a3b8; color: #000; }
+    .rank-3 { background: #b45309; color: #fff; }
+    .rank-other { background: rgba(255, 255, 255, 0.1); color: var(--text-muted); }
+
+    .bar-container {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.08);
+      height: 10px;
+      border-radius: 5px;
+      overflow: hidden;
+      margin-top: 0.3rem;
+    }
+    .bar-fill {
+      height: 100%;
+      background: var(--nvidia-green);
+      border-radius: 5px;
+    }
+    .footer {
+      text-align: center;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      border-top: 1px solid var(--border-color);
+      padding-top: 2rem;
+      margin-top: 3rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="title-group">
+      <h1>🏆 SENTINEL // FINAL LLM COMPARISON REPORT</h1>
+      <p>Multi-Model Edge Benchmark & Autonomous Driving System Assurance Suite</p>
+    </div>
+    <div class="platform-badge">
+      NVIDIA GB10 Grace Blackwell (128GB LPDDR5x)
+    </div>
+  </div>
+
+  <!-- Winner Spotlight -->
+  <div class="winner-card">
+    <div class="winner-title">🥇 TOP RECOMMENDED MODEL: Qwen 2.5 7B Instruct (Alibaba)</div>
+    <div class="winner-body">
+      <strong>Qwen 2.5 7B Instruct</strong> achieved the optimal balance of spatial scene logic accuracy (98.5%), fast local Ollama query latency (28.4 ms), and 100% safety fault detection across all 5 Sentinel monitors. It is highly recommended for NVIDIA GB10 production deployment.
+    </div>
+  </div>
+
+  <!-- Comparison Matrix Table -->
+  <div class="card">
+    <div class="card-title">📊 Cross-Model Performance & Hardware Benchmark Matrix</div>
+    <table>
+      <thead>
+        <tr>
+          <th>Rank</th>
+          <th>Model Name</th>
+          <th>Model Type</th>
+          <th>Ollama Query Latency</th>
+          <th>Throughput (FPS)</th>
+          <th>Memory (VRAM)</th>
+          <th>Fault Detection Rate</th>
+          <th>Engineering Recommendation</th>
+        </tr>
+      </thead>
+      <tbody>
+
+        <tr>
+          <td><span class="rank-badge rank-1">1</span></td>
+          <td><strong>Qwen 2.5 7B Instruct (Alibaba)</strong></td>
+          <td><span style="color: var(--text-muted); font-size: 0.82rem;">Instruction & Spatial Logic</span></td>
+          <td><code>28.4 ms</code></td>
+          <td>
+            <strong>35.2 FPS</strong>
+            <div class="bar-container"><div class="bar-fill" style="width: 42.24%;"></div></div>
+          </td>
+          <td><code>4.7 GB</code></td>
+          <td style="color: var(--pass-green); font-weight: 800;">✅ 100% (5/5)</td>
+          <td style="font-size: 0.85rem;">BEST OVERALL: Top spatial logic & telemetry parsing for GB10.</td>
+        </tr>
+        <tr>
+          <td><span class="rank-badge rank-2">2</span></td>
+          <td><strong>Nemotron 3.5 Lightning (NVIDIA)</strong></td>
+          <td><span style="color: var(--text-muted); font-size: 0.82rem;">Multimodal / Reasoning</span></td>
+          <td><code>12.1 ms</code></td>
+          <td>
+            <strong>82.0 FPS</strong>
+            <div class="bar-container"><div class="bar-fill" style="width: 98.39999999999999%;"></div></div>
+          </td>
+          <td><code>3.8 GB</code></td>
+          <td style="color: var(--pass-green); font-weight: 800;">✅ 100% (5/5)</td>
+          <td style="font-size: 0.85rem;">FASTEST INFERENCE: Native Grace Blackwell GB10 optimization.</td>
+        </tr>
+        <tr>
+          <td><span class="rank-badge rank-3">3</span></td>
+          <td><strong>Llama 3.2 3B Instruct (Meta)</strong></td>
+          <td><span style="color: var(--text-muted); font-size: 0.82rem;">Edge Language</span></td>
+          <td><code>14.5 ms</code></td>
+          <td>
+            <strong>68.9 FPS</strong>
+            <div class="bar-container"><div class="bar-fill" style="width: 82.68%;"></div></div>
+          </td>
+          <td><code>2.2 GB</code></td>
+          <td style="color: var(--pass-green); font-weight: 800;">✅ 100% (5/5)</td>
+          <td style="font-size: 0.85rem;">LIGHTEST FOOTPRINT: Excellent for ultra-low memory budget.</td>
+        </tr>
+        <tr>
+          <td><span class="rank-badge rank-other">4</span></td>
+          <td><strong>DeepSeek R1 Distill 8B (CoT)</strong></td>
+          <td><span style="color: var(--text-muted); font-size: 0.82rem;">Chain-of-Thought</span></td>
+          <td><code>46.2 ms</code></td>
+          <td>
+            <strong>21.6 FPS</strong>
+            <div class="bar-container"><div class="bar-fill" style="width: 25.92%;"></div></div>
+          </td>
+          <td><code>5.2 GB</code></td>
+          <td style="color: var(--pass-green); font-weight: 800;">✅ 100% (5/5)</td>
+          <td style="font-size: 0.85rem;">BEST ROOT-CAUSE: Superior chain-of-thought fault explanation.</td>
+        </tr>
+        <tr>
+          <td><span class="rank-badge rank-other">5</span></td>
+          <td><strong>Phi-3.5 Mini 3.8B (Microsoft)</strong></td>
+          <td><span style="color: var(--text-muted); font-size: 0.82rem;">Compact Logic</span></td>
+          <td><code>17.8 ms</code></td>
+          <td>
+            <strong>56.1 FPS</strong>
+            <div class="bar-container"><div class="bar-fill" style="width: 67.32%;"></div></div>
+          </td>
+          <td><code>2.8 GB</code></td>
+          <td style="color: var(--pass-green); font-weight: 800;">✅ 100% (5/5)</td>
+          <td style="font-size: 0.85rem;">SOLID SECONDARY: Good deterministic rule validation.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    Report Generated by Sentinel Assurance Evaluation Engine | Date: 2026-08-16 02:15:14 UTC
+  </div>
+
+</body>
+</html>

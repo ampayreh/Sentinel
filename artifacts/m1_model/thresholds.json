@@ -1,0 +1,18 @@
+{
+  "window_len": 20,
+  "warn_alpha": 0.01,
+  "fail_alpha": 0.002,
+  "warn_threshold": 0.9870074391365051,
+  "fail_threshold": 1.0364059209823608,
+  "train_stats": {
+    "n_windows": 47981,
+    "epochs": 15,
+    "final_train_mse": 0.8393566012382507
+  },
+  "empirical_held_out_warn_rate": 0.005759118604457057,
+  "empirical_held_out_fail_rate": 0.0002503964610633503,
+  "trained_on": "synthetic_nominal_seeds_0-79",
+  "calibrated_on": "synthetic_nominal_seeds_80-99",
+  "reported_on": "synthetic_nominal_seeds_100-119",
+  "model_version": "m1-learned-0.1.0-synthetic"
+}

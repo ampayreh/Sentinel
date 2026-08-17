@@ -1,0 +1,52 @@
+# Monitor thresholds. Every number here has a comment on how it was derived.
+# NOTE (honesty flag): these are calibrated against the synthetic nominal
+# generator (sentinel/pipeline/readers/synthetic.py, seed sweep 0..49), not
+# against real comma2k19 statistics, because comma2k19 is not downloadable
+# in this build environment. Re-run scripts/calibrate_thresholds.py against
+# real nominal data before trusting these numbers operationally.
+schema_version: 1
+
+m2_sensor_agreement:
+  # Mahalanobis distance thresholds, calibrated by
+  # scripts/calibrate_thresholds.py against 50 synthetic nominal runs
+  # (seeds 0-49, 60s each @ 20Hz, 60000 samples). warn = measured 99.5th
+  # percentile (3.529); fail = measured 99.9th percentile x 1.3 margin
+  # (5.158). Full output in config/calibration_report.json. Re-run against
+  # real comma2k19-derived residuals before operational use.
+  mahalanobis_warn_threshold: 3.529
+  mahalanobis_fail_threshold: 5.158
+  # CUSUM drift detector: slack (k) and decision interval (h), both in units
+  # of the underlying residual's standard deviation. k=0.5*sigma is the
+  # textbook default for detecting a 1-sigma mean shift with good lead
+  # time (Montgomery, "Intro to Statistical Quality Control"). h is NOT
+  # the textbook default of 5*sigma here — that value gives an in-control
+  # average run length (ARL0) of only ~285 ticks at 20Hz (~14s), i.e. one
+  # false CUSUM alarm roughly every 14s of nominal driving, which was
+  # observed empirically (see M0-M3 checkpoint notes) and is unusable.
+  # h=10.5 is solved from Siegmund's ARL0 approximation
+  # ARL0 ~= (exp(2kh) - 2kh - 1) / (2k^2) for a target ARL0 of one false
+  # alarm per nominal hour (72000 ticks @ 20Hz) with k=0.5: solving
+  # exp(h) - h - 1 = 36000 gives h ~= 10.5 (ARL0 ~= 72600 ticks ~= 1.01hr).
+  # This trades detection lead time for a usable false-alarm rate — see
+  # sentinel/eval/report.py's ablation for the measured lead-time cost.
+  cusum_k_sigma: 0.5
+  cusum_h_sigma: 10.5
+
+m3_timing:
+  # Deadline is the decision_latency_budget_ms from sentinel.yaml (50ms),
+  # split into per-stage sub-budgets. See sentinel/eval/report.py for the
+  # measured per-stage breakdown that this was set against.
+  e2e_deadline_ms: 50.0
+  jitter_ewma_alpha: 0.2  # standard fast-responding EWMA smoothing factor
+  jitter_warn_ms: 15.0    # ~3x nominal synthetic jitter std (see synthetic.py compute noise)
+  jitter_fail_ms: 30.0
+  max_consecutive_drops_warn: 2
+  max_consecutive_drops_fail: 5
+
+m4_odd:
+  min_gnss_satellites: 6      # below this, GNSS fix is considered unreliable (common GPS guidance)
+  max_hdop_valid: 2.5         # HDOP > 2.5 = "moderate" or worse per standard GPS accuracy bands
+  max_speed_residential_mps: 13.4   # 30 mph, common US residential limit
+  max_speed_arterial_mps: 22.3      # 50 mph, urban arterial limit
+  max_speed_highway_mps: 33.5       # 75 mph
+  construction_zone_overtake_prohibited: true  # POL-014 worked example from spec

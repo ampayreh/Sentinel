@@ -1,0 +1,27 @@
+# Sentinel Super-Repo Configuration — NVIDIA Grace Blackwell GB10
+
+hardware:
+  target_chip: "NVIDIA GB10 Grace Blackwell (128GB LPDDR5x)"
+  architecture: "aarch64"
+  memory_bandwidth_gbps: 900
+  latency_budget_us: 50000
+
+datasets:
+  primary: "physical_ai"  # Options: physical_ai, comma2k19, seattle, synthetic
+  fallback: "synthetic"
+  seattle_data_dir: "data_real/seattle"
+  physical_ai_dir: "data_real/physical_ai"
+  comma2k19_dir: "data_real/comma2k19"
+
+llm_advisor:
+  provider: "ollama"  # Options: ollama, vllm, tensorrt_llm
+  ollama_url: "http://localhost:11434"
+  default_model: "nemotron-3.5-lightning"
+  fallback_model: "smolvlm:2.2b"
+  frequency_hz: 0.5
+  async_non_blocking: true
+
+benchmarking:
+  output_file: "results_gb10.md"
+  sample_size_nominal: 10
+  nominal_duration_s: 60.0

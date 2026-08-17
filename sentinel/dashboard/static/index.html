@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SENTINEL // Runtime Assurance for AI-Native Autonomy</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;600;800&family=Outfit:wght@400;600;700;900&display=swap" rel="stylesheet">
+</head>
+<body class="theme-dark">
+  <!-- Top Navigation / Header -->
+  <header class="app-header">
+    <div class="logo-group">
+      <div class="shield-badge">🛡️</div>
+      <div class="branding">
+        <h1 class="logo-title">SENTINEL</h1>
+        <span class="logo-sub">RUNTIME ASSURANCE LAYER // NVIDIA GB10</span>
+      </div>
+    </div>
+    
+    <div class="header-center">
+      <div class="global-trust-pill" id="globalTrustPill">
+        <span class="pulse-dot"></span>
+        <span class="trust-label" id="trustLabel">INITIALIZING...</span>
+      </div>
+    </div>
+
+    <div class="header-stats">
+      <div class="stat-box">
+        <span class="stat-label">HARDWARE</span>
+        <span class="stat-value text-nvidia">GB10 Grace Blackwell</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">THROUGHPUT</span>
+        <span class="stat-value" id="fpsCounter">0.0 FPS</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">FRAME SEQ</span>
+        <span class="stat-value" id="seqCounter">#00000</span>
+      </div>
+      <div class="stat-box">
+        <span class="stat-label">STATUS</span>
+        <span class="stat-value text-green" id="connectionStatus">ONLINE</span>
+      </div>
+      <button class="btn btn-sm btn-debug" id="btnOpenDebugModal">🧪 Fault Injection Debug</button>
+    </div>
+  </header>
+
+  <!-- Main Grid Layout -->
+  <main class="dashboard-grid">
+    
+    <!-- LEFT COLUMN: Live Perception & Vehicle Telemetry -->
+    <section class="panel camera-panel">
+      <div class="panel-header">
+        <span class="panel-icon">📹</span>
+        <h2>Perception & Ego Telemetry</h2>
+        <span class="badge" id="sourceBadge">comma2k19 + Replay</span>
+      </div>
+      
+      <div class="camera-viewport">
+        <img id="cameraStream" class="camera-img" alt="Camera Feed" src="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='360' viewBox='0 0 640 360'><rect width='640' height='360' fill='%2311141e'/><text x='50%25' y='50%25' fill='%2376b900' font-family='monospace' font-size='16' text-anchor='middle'>AWAITING SENSOR STREAM</text></svg>">
+        <div class="camera-overlay">
+          <div class="cam-stat" id="camSpeed">0.0 km/h</div>
+          <div class="cam-stat" id="camSteer">0.0°</div>
+          <div class="cam-stat" id="camGps">47.6062, -122.3321</div>
+        </div>
+      </div>
+
+      <!-- Telemetry Gauges -->
+      <div class="telemetry-bar">
+        <div class="tele-item">
+          <span class="tele-title">SPEED (CAN)</span>
+          <div class="meter-bar"><div class="meter-fill" id="meterSpeed" style="width: 0%"></div></div>
+          <span class="tele-val" id="valSpeed">0.0 km/h</span>
+        </div>
+        <div class="tele-item">
+          <span class="tele-title">STEERING ANGLE</span>
+          <div class="meter-bar"><div class="meter-fill" id="meterSteer" style="width: 50%"></div></div>
+          <span class="tele-val" id="valSteer">0.0°</span>
+        </div>
+        <div class="tele-item">
+          <span class="tele-title">TIMING JITTER</span>
+          <div class="meter-bar"><div class="meter-fill fill-green" id="meterJitter" style="width: 10%"></div></div>
+          <span class="tele-val" id="valJitter">0.0 ms</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- CENTER COLUMN: Parallel Monitor Bank -->
+    <section class="panel monitors-panel">
+      <div class="panel-header">
+        <span class="panel-icon">⚡</span>
+        <h2>Parallel Monitor Bank (5 Hz)</h2>
+        <span class="badge badge-accent">CUDA + CPU</span>
+      </div>
+
+      <div class="monitors-list" id="monitorsList">
+        <!-- Monitor cards dynamically rendered -->
+      </div>
+
+      <!-- DMV Auto-Diagnosis Alert Banner -->
+      <div class="dmv-alert-card" id="dmvCard" style="display: none;">
+        <div class="dmv-header">
+          <span class="dmv-tag">CA DMV TAXONOMY MATCH</span>
+          <span class="dmv-code" id="dmvCode">DMV-01</span>
+        </div>
+        <div class="dmv-body">
+          <div class="dmv-title" id="dmvTitle">Perception Occlusion</div>
+          <div class="dmv-desc" id="dmvDesc">Camera lens dirty or severely occluded.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: Policy Gate & LLM Advisor -->
+    <section class="panel right-panel">
+      
+      <!-- Deterministic Policy Matrix -->
+      <div class="sub-panel policy-box">
+        <div class="panel-header">
+          <span class="panel-icon">🔒</span>
+          <h2>Deterministic Policy Gate</h2>
+          <span class="badge badge-nvidia">Zero ML</span>
+        </div>
+        
+        <div class="action-grid" id="actionGrid">
+          <!-- Actions pills dynamically rendered -->
+        </div>
+
+        <div class="rule-trace-box" id="ruleTrace">
+          <span class="trace-label">Active Rule Trace:</span>
+          <span class="trace-content" id="traceContent">ALLOW → Full autonomy envelope permitted</span>
+        </div>
+      </div>
+
+      <!-- LLM Cognitive Advisor -->
+      <div class="sub-panel advisor-box">
+        <div class="panel-header">
+          <span class="panel-icon">🧠</span>
+          <h2 id="advisorTitle">LLM Cognitive Advisor</h2>
+          <select id="llmModelSelect" class="llm-select" title="Switch Local LLM Model">
+            <option value="qwen2.5-7b" selected>🐉 Qwen 2.5 7B Instruct (Alibaba)</option>
+            <option value="qwen2.5-vl-7b">👁️ Qwen 2.5 VL 7B (Vision-Lang)</option>
+            <option value="nemotron-3.5-lightning">⚡ Nemotron 3.5 Lightning (NVIDIA)</option>
+            <option value="llama3.2-3b">🦙 Llama 3.2 3B Instruct (Meta)</option>
+            <option value="deepseek-r1-distill-8b">🧬 DeepSeek R1 Distill 8B (CoT)</option>
+            <option value="phi-3.5-mini">🔬 Phi-3.5 Mini 3.8B (Microsoft)</option>
+          </select>
+        </div>
+
+        <div class="advisor-content">
+          <p class="advisor-text" id="advisorText">Analyzing continuous driving scene context via local model...</p>
+          <div class="advisor-tags" id="advisorTags">
+            <span class="tag">#normal</span>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- BOTTOM ROW: Evidence Timeline & Event Inspector -->
+    <section class="panel timeline-panel">
+      <div class="panel-header">
+        <span class="panel-icon">📜</span>
+        <h2>Append-Only Evidence Explorer (JSON Lines Replay)</h2>
+        <div class="timeline-controls">
+          <button class="btn btn-sm" id="btnRefreshEvidence">⟳ Refresh Evidence</button>
+          <button class="btn btn-sm btn-nvidia" id="btnExportJSON">📥 Download JSONL</button>
+        </div>
+      </div>
+
+      <div class="evidence-timeline" id="evidenceTimeline">
+        <!-- Event rows dynamically inserted -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Debug & Fault Injection Modal -->
+  <div class="modal-overlay" id="debugModalOverlay" style="display: none;">
+    <div class="modal-window">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🧪 Fault Injection & Assurance Verification Window</span>
+        </div>
+        <button class="modal-close" id="btnCloseDebugModal">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <p class="modal-desc">
+          Test Sentinel's runtime assurance layer across all 5 DMV/NHTSA failure classes. 
+          You can inject individual faults for 15s or run the automated 5-stage benchmark suite.
+        </p>
+
+        <div class="debug-actions-bar">
+          <button class="btn btn-primary" id="btnRunAllFaults">▶ Run All 5 Test Cases Sequentially</button>
+          <button class="btn btn-nvidia" id="btnGenerateReports">📊 Generate HTML Benchmark & Comparison Reports</button>
+          <div class="test-progress-label" id="testSuiteStatus">Ready to execute tests</div>
+        </div>
+
+        <div class="report-links-bar" id="reportLinksContainer" style="display: none; margin-bottom: 1rem; padding: 0.8rem; background: rgba(118, 185, 0, 0.1); border: 1px solid var(--nvidia-green); border-radius: 8px;">
+          <strong style="color: var(--nvidia-green);">📄 HTML Reports Generated:</strong>
+          <a id="linkSingleReport" href="#" target="_blank" class="btn btn-sm btn-outline" style="margin-left: 0.5rem; text-decoration: none;">📄 Active LLM Benchmark Report</a>
+          <a id="linkComparisonReport" href="#" target="_blank" class="btn btn-sm btn-nvidia" style="margin-left: 0.5rem; text-decoration: none;">🏆 Final LLM Comparison Report</a>
+        </div>
+
+        <div class="fault-test-grid">
+          <div class="fault-test-card" id="cardM1">
+            <div class="fault-card-header">
+              <span class="fault-target">M1 PERCEPTION</span>
+              <span class="fault-status-badge" id="badgeM1">READY</span>
+            </div>
+            <div class="fault-card-title">Perception Degradation</div>
+            <p class="fault-card-desc">Simulates severe camera occlusion, confidence drop &amp; box jitter spike.</p>
+            <button class="btn btn-sm btn-outline btnInjectSingle" data-fault="perception_degradation">Inject M1 Fault (15s)</button>
+          </div>
+
+          <div class="fault-test-card" id="cardM2Dropout">
+            <div class="fault-card-header">
+              <span class="fault-target">M2 SENSOR AGREEMENT</span>
+              <span class="fault-status-badge" id="badgeM2Dropout">READY</span>
+            </div>
+            <div class="fault-card-title">Sensor Dropout (Hardware)</div>
+            <p class="fault-card-desc">Nulls GNSS and Range data payload to trigger cross-modal disparity.</p>
+            <button class="btn btn-sm btn-outline btnInjectSingle" data-fault="sensor_dropout">Inject Dropout (15s)</button>
+          </div>
+
+          <div class="fault-test-card" id="cardM2Drift">
+            <div class="fault-card-header">
+              <span class="fault-target">M2 CUSUM DRIFT</span>
+              <span class="fault-status-badge" id="badgeM2Drift">READY</span>
+            </div>
+            <div class="fault-card-title">Calibration Drift (Slow)</div>
+            <p class="fault-card-desc">Linearly increasing speed bias to test cumulative CUSUM drift detection.</p>
+            <button class="btn btn-sm btn-outline btnInjectSingle" data-fault="calibration_drift">Inject Drift (15s)</button>
+          </div>
+
+          <div class="fault-test-card" id="cardM3">
+            <div class="fault-card-header">
+              <span class="fault-target">M3 TIMING &amp; LATENCY</span>
+              <span class="fault-status-badge" id="badgeM3">READY</span>
+            </div>
+            <div class="fault-card-title">Latency Spike</div>
+            <p class="fault-card-desc">Adds +100ms compute latency spike to breach real-time safety deadline.</p>
+            <button class="btn btn-sm btn-outline btnInjectSingle" data-fault="latency_spike">Inject Latency (15s)</button>
+          </div>
+
+          <div class="fault-test-card" id="cardM4">
+            <div class="fault-card-header">
+              <span class="fault-target">M4 ODD COMPLIANCE</span>
+              <span class="fault-status-badge" id="badgeM4">READY</span>
+            </div>
+            <div class="fault-card-title">ODD Exit &amp; Geofence</div>
+            <p class="fault-card-desc">Simulates localization loss &amp; geofence exit requiring immediate DEGRADE.</p>
+            <button class="btn btn-sm btn-outline btnInjectSingle" data-fault="odd_exit">Inject ODD Exit (15s)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

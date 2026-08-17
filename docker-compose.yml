@@ -1,0 +1,30 @@
+# arm64-first compose file. `platform: linux/arm64` targets the GB10 unit;
+# override with `--platform linux/amd64` (or edit this field) for local
+# x86_64 development, as this build/test session did.
+services:
+  sentinel:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    platform: linux/arm64
+    image: sentinel:latest
+    volumes:
+      - ./evidence_logs:/app/evidence_logs
+      - ./eval_results:/app/eval_results
+      - ./data:/app/data
+    command: ["run", "--scenario", "nominal_urban_loop", "--duration", "60"]
+
+  sentinel-eval:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platforms:
+        - linux/arm64
+    platform: linux/arm64
+    image: sentinel:latest
+    volumes:
+      - ./evidence_logs:/app/evidence_logs
+      - ./eval_results:/app/eval_results
+    command: ["eval", "--all"]

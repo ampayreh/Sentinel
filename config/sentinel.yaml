@@ -1,0 +1,19 @@
+# Sentinel top-level runtime configuration.
+# Schema version bump required whenever a field is added/removed/retyped.
+schema_version: 1
+
+runtime:
+  tick_hz: 20.0                # fixed alignment tick rate, per spec
+  log_level: "INFO"
+  json_logs: false
+  decision_latency_budget_ms: 50.0   # end-to-end monitor->policy budget
+
+evidence:
+  log_dir: "./evidence_logs"
+  format: "jsonl"
+  flush_every_n_records: 1     # 1 = durability over throughput; raise for higher rate
+
+paths:
+  trust_weights: "./config/trust_weights.yaml"
+  policy_table: "./config/policy_table.yaml"
+  monitor_thresholds: "./config/monitor_thresholds.yaml"
