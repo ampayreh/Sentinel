@@ -34,6 +34,8 @@ from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
+from sentinel.schemas.monitor_result import MonitorResult, Verdict
+
 
 class FailureClass(str, Enum):
     PERCEPTION_FAILURE = "perception_failure"
@@ -47,6 +49,24 @@ class FailureClass(str, Enum):
     CONSTRUCTION_ROAD_WORK = "construction_road_work"
     PRECAUTIONARY_TEST_DRIVER = "precautionary_test_driver"
     UNKNOWN_OTHER = "unknown_other"
+
+
+# One-line human-readable descriptions for dashboard display. Restates the
+# same standard AV-disengagement taxonomy the enum values and
+# _KEYWORD_RULES already encode — not a new claim, just a display string.
+FAILURE_CLASS_DESCRIPTION: dict[FailureClass, str] = {
+    FailureClass.PERCEPTION_FAILURE: "Perception system failed to correctly detect or classify an object or condition.",
+    FailureClass.PLANNER_BEHAVIOR_DISCREPANCY: "Planner's chosen behavior diverged from what a safe driver would do (Sentinel has no direct monitor for this — see documented gap below).",
+    FailureClass.HARDWARE_SENSOR_FAULT: "A sensor or hardware component degraded or failed.",
+    FailureClass.SOFTWARE_FAULT: "A software fault or crash in the autonomy stack.",
+    FailureClass.COMMUNICATION_LATENCY_FAULT: "Excess latency or dropped messages between system components.",
+    FailureClass.LOCALIZATION_FAULT: "Vehicle's estimated position diverged from ground truth.",
+    FailureClass.ADVERSE_WEATHER: "Weather conditions (rain, fog, glare, snow) degraded system performance.",
+    FailureClass.UNEXPECTED_ROAD_USER_BEHAVIOR: "Another road user (pedestrian, cyclist, vehicle) behaved unpredictably.",
+    FailureClass.CONSTRUCTION_ROAD_WORK: "A construction or road-work zone was not handled correctly.",
+    FailureClass.PRECAUTIONARY_TEST_DRIVER: "Test driver disengaged out of caution with no measurable system fault.",
+    FailureClass.UNKNOWN_OTHER: "Cause did not match a known failure category.",
+}
 
 
 # Ordered: first matching class wins, so ordering encodes precedence for
@@ -140,6 +160,42 @@ FAILURE_CLASS_TO_MONITOR: dict[FailureClass, list[str]] = {
 #     caution. No monitor SHOULD catch these — they are not a Sentinel
 #     gap, they are outside what a health-signal-based system can or
 #     should flag; noted here for completeness of the taxonomy table.
+
+
+def diagnose_failure_from_monitors(monitor_results: list[MonitorResult]) -> FailureClass | None:
+    """Best-effort reverse lookup: given this tick's live monitor results,
+    guess which DMV FailureClass the current fault pattern most resembles.
+
+    This is a dashboard convenience for a human operator, not a safety
+    decision — the actual authority decision is made by the deterministic
+    policy gate (see sentinel/policy/gate.py), which never consults this
+    function. Uses FAILURE_CLASS_TO_MONITOR (above) as the same reverse
+    map the DMV CSV clustering path documents, so the two "which failure
+    class does monitor X cover" views stay consistent by construction
+    instead of drifting apart as separate hand-maintained logic.
+
+    Returns the FailureClass whose required-monitor set has the most
+    overlap with currently FAILing monitors (ties broken by fewest extra
+    monitors required, i.e. the most specific match), or None if no
+    monitor is currently FAILing.
+    """
+    failing_ids = {m.monitor_id for m in monitor_results if m.verdict == Verdict.FAIL}
+    if not failing_ids:
+        return None
+
+    best: tuple[FailureClass, int, int] | None = None  # (class, overlap, extra)
+    for failure_class, required in FAILURE_CLASS_TO_MONITOR.items():
+        if not required:
+            continue  # documented gap — no monitor covers this class
+        required_set = set(required)
+        overlap = len(required_set & failing_ids)
+        if overlap == 0:
+            continue
+        extra = len(required_set - failing_ids)
+        if best is None or overlap > best[1] or (overlap == best[1] and extra < best[2]):
+            best = (failure_class, overlap, extra)
+
+    return best[0] if best else FailureClass.UNKNOWN_OTHER
 
 
 # --- CSV parsing (untested against a real file — see module docstring) ---

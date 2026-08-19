@@ -17,7 +17,12 @@ import uvicorn
 from PIL import Image
 
 from sentinel.evidence.writer import read_log
-from sentinel.pipeline.readers.dmv_taxonomy import FailureClass, classify_description
+from sentinel.pipeline.readers.dmv_taxonomy import (
+    FAILURE_CLASS_DESCRIPTION,
+    FailureClass,
+    classify_description,
+    diagnose_failure_from_monitors,
+)
 from sentinel.pipeline.readers.synthetic import ScenarioSpec, SyntheticReader
 from sentinel.pipeline.stream import health_stream
 from sentinel.runtime.factory import build_decision_loop
@@ -140,7 +145,7 @@ async def broadcast_state(state_dict: dict[str, Any]):
     snap = state_dict.get("latest_snapshot")
     
     # Auto-diagnose DMV Failure Class
-    dmv = diagnose_failure(monitors)
+    dmv = diagnose_failure_from_monitors(monitors)
     state_dict["latest_dmv"] = dmv
 
     # Encode camera frame to JPEG thumbnail base64 if present
@@ -167,8 +172,8 @@ async def broadcast_state(state_dict: dict[str, Any]):
         },
         "monitors": [
             {
-                "name": m.name,
-                "status": m.status.value,
+                "name": m.monitor_id,
+                "status": m.verdict.value,
                 "confidence": round(m.confidence, 3),
                 "evidence": m.evidence,
             }
@@ -181,10 +186,9 @@ async def broadcast_state(state_dict: dict[str, Any]):
             "tags": llm.context_tags if llm else [],
         } if llm else None,
         "dmv": {
-            "code": dmv.code,
-            "name": dmv.name,
-            "description": dmv.description,
-            "primary": dmv.primary_monitor,
+            "code": dmv.name,
+            "name": dmv.value.replace("_", " ").title(),
+            "description": FAILURE_CLASS_DESCRIPTION.get(dmv, ""),
         } if dmv else None,
         "vehicle": {
             "speed_kph": round(snap.can.get("speed", 0.0) * 3.6, 1) if (snap and snap.can) else 0.0,

@@ -157,3 +157,28 @@ torch — enforced by a subprocess-level test
   `results.md`.
 - TensorRT export path is documented (`onnx_to_tensorrt_export_command`)
   but not executable/verified in this build (no TensorRT/GPU).
+- **Web dashboard (`sentinel run --web`) telemetry broadcast was unwired
+  from the live run loop, found by actually running it, not by review.**
+  `broadcast_state()` in `sentinel/dashboard/server.py` called an
+  undefined `diagnose_failure()` (would raise `NameError` on the first
+  connected client) and read `MonitorResult` fields (`m.name`, `m.status`)
+  that don't exist on that schema (real fields: `monitor_id`, `verdict`) —
+  both are now fixed and verified: `pytest -q` still passes 47/47, mypy no
+  longer flags either error, and `diagnose_failure_from_monitors()` is a
+  real implementation built from the same `FAILURE_CLASS_TO_MONITOR`
+  reverse-map the DMV CSV clustering path already uses, so the two "which
+  monitor covers this failure class" views can't drift apart. **Not
+  fixed, and flagged here rather than silently patched:** the state keys
+  `broadcast_state()` reads (`latest_trust`, `latest_llm`,
+  `latest_snapshot`) don't match the keys `sentinel/demo/cli.py`'s run
+  loop actually writes (`latest_trust_state`, `latest_frame`; `latest_llm`
+  is never written at all; `latest_policy` is written as a list of
+  `PolicyDecisionRecord`, not the single object with `.actions`/
+  `.rule_trace` the broadcaster expects). Trust/LLM/snapshot silently
+  degrade to placeholder defaults rather than crash; policy would raise
+  `AttributeError` if a client ever connects while a real decision loop is
+  driving `current_state`. This needs the state_dict contract reconciled
+  between the run loop and the broadcaster — a small integration task, not
+  a one-line fix — and reconciling it by guessing at the intended shape
+  risked introducing new unverified behavior of exactly the kind this
+  audit pass exists to catch, so it's documented here instead.
